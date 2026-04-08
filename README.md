@@ -1,5 +1,7 @@
 # VoiceInput
 
+[English](README.md) | [中文](README_zh.md)
+
 A macOS menu bar app that turns your voice into text input. Hold the **Fn key** to speak, release to type — works in any app.
 
 ## Features
