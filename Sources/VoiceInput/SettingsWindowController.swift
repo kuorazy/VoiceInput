@@ -1,5 +1,40 @@
 import Cocoa
 
+// NSTextField subclass that handles Cmd+C/V/X/A key equivalents
+// Needed because this menu bar app has no main menu bar, so standard
+// Edit menu commands are not available through the responder chain.
+class PasteableTextField: NSTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command), let chars = event.charactersIgnoringModifiers {
+            if let editor = currentEditor() {
+                switch chars {
+                case "c": editor.copy(self); return true
+                case "v": editor.paste(self); return true
+                case "x": editor.cut(self); return true
+                case "a": editor.selectAll(self); return true
+                default: break
+                }
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
+class PasteableSecureTextField: NSSecureTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command), let chars = event.charactersIgnoringModifiers {
+            if let editor = currentEditor() {
+                switch chars {
+                case "v": editor.paste(self); return true
+                case "a": editor.selectAll(self); return true
+                default: break
+                }
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 class SettingsWindowController: NSWindowController {
     convenience init() {
         let window = NSWindow(
@@ -20,9 +55,9 @@ class SettingsWindowController: NSWindowController {
 }
 
 class SettingsViewController: NSViewController {
-    private var baseURLField: NSTextField!
-    private var apiKeyField: NSSecureTextField!
-    private var modelField: NSTextField!
+    private var baseURLField: PasteableTextField!
+    private var apiKeyField: PasteableSecureTextField!
+    private var modelField: PasteableTextField!
     private var testButton: NSButton!
     private var saveButton: NSButton!
     private var statusLabel: NSTextField!
@@ -37,7 +72,7 @@ class SettingsViewController: NSViewController {
         baseURLLabel.frame = NSRect(x: 20, y: 220, width: 120, height: 24)
         contentView.addSubview(baseURLLabel)
 
-        baseURLField = NSTextField(frame: NSRect(x: 150, y: 220, width: 310, height: 24))
+        baseURLField = PasteableTextField(frame: NSRect(x: 150, y: 220, width: 310, height: 24))
         baseURLField.placeholderString = "https://api.openai.com/v1"
         baseURLField.stringValue = defaults.string(forKey: "LLMApiBaseURL") ?? ""
         contentView.addSubview(baseURLField)
@@ -47,7 +82,7 @@ class SettingsViewController: NSViewController {
         apiKeyLabel.frame = NSRect(x: 20, y: 180, width: 120, height: 24)
         contentView.addSubview(apiKeyLabel)
 
-        apiKeyField = NSSecureTextField(frame: NSRect(x: 150, y: 180, width: 310, height: 24))
+        apiKeyField = PasteableSecureTextField(frame: NSRect(x: 150, y: 180, width: 310, height: 24))
         apiKeyField.placeholderString = "sk-..."
         apiKeyField.stringValue = defaults.string(forKey: "LLMApiKey") ?? ""
         contentView.addSubview(apiKeyField)
@@ -57,7 +92,7 @@ class SettingsViewController: NSViewController {
         modelLabel.frame = NSRect(x: 20, y: 140, width: 120, height: 24)
         contentView.addSubview(modelLabel)
 
-        modelField = NSTextField(frame: NSRect(x: 150, y: 140, width: 310, height: 24))
+        modelField = PasteableTextField(frame: NSRect(x: 150, y: 140, width: 310, height: 24))
         modelField.placeholderString = "gpt-4o-mini"
         modelField.stringValue = defaults.string(forKey: "LLMModel") ?? ""
         contentView.addSubview(modelField)

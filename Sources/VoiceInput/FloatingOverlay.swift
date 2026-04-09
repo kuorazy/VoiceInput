@@ -1,12 +1,18 @@
 import Cocoa
 
+class FloatingPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 class FloatingOverlay {
-    private var panel: NSPanel!
+    private var panel: FloatingPanel!
     private var waveformView: WaveformView!
     private var transcriptLabel: NSTextField!
     private var refiningSpinner: NSProgressIndicator!
     private var refiningLabel: NSTextField!
     private var containerView: NSVisualEffectView!
+    private var wrapperView: NSView!
 
     private var isShowing = false
 
@@ -15,7 +21,7 @@ class FloatingOverlay {
     }
 
     private func setupPanel() {
-        panel = NSPanel(
+        panel = FloatingPanel(
             contentRect: NSRect(x: 0, y: 0, width: 280, height: 56),
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
@@ -28,14 +34,21 @@ class FloatingOverlay {
         panel.backgroundColor = .clear
         panel.hasShadow = true
 
-        // Container: visual effect view
+        // Transparent wrapper as contentView to prevent white background
+        wrapperView = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 56))
+        wrapperView.wantsLayer = true
+        wrapperView.layer?.backgroundColor = NSColor.clear.cgColor
+
+        // Capsule visual effect view inside wrapper
         containerView = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 280, height: 56))
+        containerView.autoresizingMask = [.width, .height]
         containerView.material = .hudWindow
         containerView.blendingMode = .behindWindow
         containerView.state = .active
         containerView.wantsLayer = true
         containerView.layer?.cornerRadius = 28
         containerView.layer?.masksToBounds = true
+        wrapperView.addSubview(containerView)
 
         // Waveform view
         waveformView = WaveformView(frame: NSRect(x: 12, y: 12, width: 44, height: 32))
@@ -74,7 +87,7 @@ class FloatingOverlay {
         refiningLabel.isHidden = true
         containerView.addSubview(refiningLabel)
 
-        panel.contentView = containerView
+        panel.contentView = wrapperView
     }
 
     private func reposition(width: CGFloat) {
@@ -101,12 +114,12 @@ class FloatingOverlay {
         reposition(width: estimatedWidth)
 
         // Entrance spring animation
-        panel.contentView?.wantsLayer = true
-        panel.contentView?.layer?.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        panel.contentView?.layer?.position = CGPoint(x: panel.frame.width / 2, y: panel.frame.height / 2)
+        wrapperView.wantsLayer = true
+        wrapperView.layer?.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        wrapperView.layer?.position = CGPoint(x: panel.frame.width / 2, y: panel.frame.height / 2)
 
         panel.alphaValue = 0
-        panel.contentView?.layer?.setValue(0.3, forKeyPath: "transform.scale")
+        wrapperView.layer?.setValue(0.3, forKeyPath: "transform.scale")
         panel.orderFrontRegardless()
 
         NSAnimationContext.runAnimationGroup { context in
@@ -114,7 +127,7 @@ class FloatingOverlay {
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             context.allowsImplicitAnimation = true
             self.panel.alphaValue = 1
-            self.panel.contentView?.layer?.setValue(1.0, forKeyPath: "transform.scale")
+            self.wrapperView.layer?.setValue(1.0, forKeyPath: "transform.scale")
         }
     }
 
@@ -138,7 +151,6 @@ class FloatingOverlay {
 
         // Resize for refining state
         let totalWidth: CGFloat = 12 + 44 + 8 + 20 + 4 + 100 + 20
-        containerView.frame = NSRect(x: 0, y: 0, width: totalWidth, height: 56)
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.25
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -161,11 +173,11 @@ class FloatingOverlay {
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             context.allowsImplicitAnimation = true
             self.panel.alphaValue = 0
-            self.panel.contentView?.layer?.setValue(0.5, forKeyPath: "transform.scale")
+            self.wrapperView.layer?.setValue(0.5, forKeyPath: "transform.scale")
         }, completionHandler: {
             self.panel.orderOut(nil)
             self.panel.alphaValue = 1
-            self.panel.contentView?.layer?.setValue(1.0, forKeyPath: "transform.scale")
+            self.wrapperView.layer?.setValue(1.0, forKeyPath: "transform.scale")
             self.transcriptLabel.stringValue = ""
             completion?()
         })
@@ -184,7 +196,6 @@ class FloatingOverlay {
         let totalWidth = 12 + 44 + 8 + labelWidth + 20
 
         transcriptLabel.frame = NSRect(x: 64, y: 0, width: labelWidth, height: 56)
-        containerView.frame = NSRect(x: 0, y: 0, width: totalWidth, height: 56)
 
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.25
